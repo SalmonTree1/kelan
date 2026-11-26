@@ -2,12 +2,9 @@ use chrono::Local;
 use std::env;
 use std::error::Error;
 use std::fs::{self, OpenOptions};
-use std::io::{self, Write};
-use std::io::Read;
-
+use std::io::{self, BufRead, Write};
 
 fn notes_dir() -> Result<String, Box<dyn Error>> {
-    // Allow overriding notes directory via environment variable
     if let Ok(dir) = env::var("NOTES_DIR") {
         return Ok(dir);
     }
@@ -19,6 +16,22 @@ fn today_file_path() -> Result<String, Box<dyn Error>> {
     let dir = notes_dir()?;
     let date = Local::now().format("%Y-%m-%d").to_string();
     Ok(format!("{dir}/{date}.txt"))
+}
+
+fn read_multiline() -> Result<String, Box<dyn Error>> {
+    println!("Enter lines (type 'done' on a new line to finish):");
+    let stdin = io::stdin();
+    let mut lines = Vec::new();
+
+    for line in stdin.lock().lines() {
+        let line = line?;
+        if line.trim() == "done" {
+            break;
+        }
+        lines.push(line);
+    }
+
+    Ok(lines.join("\n"))
 }
 
 pub fn print_help() {
@@ -33,7 +46,7 @@ pub fn print_help() {
     println!();
     println!("COMMANDS:");
     println!("  read [file_name]   Print a note from ~/notes (defaults to today's note)");
-    println!("  append [text...]   Append to today's note (reads from stdin if text omitted, joins args with spaces)");
+    println!("  append [text...]   Append to today's note (interactive mode if text omitted; type 'done' to finish)");
     println!("  help               Show this help message");
     println!();
     println!("ENVIRONMENT:");
@@ -44,8 +57,7 @@ pub fn print_help() {
     println!("  cargo run -- read 2026-11-25.txt");
     println!("  cargo run -- append \"Had a breakthrough today\"");
     println!("  cargo run -- append First line second line");
-    println!("  cargo run -- append <<< \"First paragraph\n\nSecond paragraph\"");
-    println!("  echo -e \"Line1\\nLine2\" | cargo run -- append");
+    println!("  cargo run -- append");
     println!("  cargo run -- help");
 }
 
@@ -70,17 +82,11 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
                 .append(true)
                 .open(path)?;
 
-            // Use provided text (joined args) or read from stdin
             let text = match config.text {
                 Some(t) => t,
-                None => {
-                    let mut buffer = String::new();
-                    io::stdin().read_to_string(&mut buffer)?;
-                    buffer
-                }
+                None => read_multiline()?,
             };
 
-            // Write content exactly as provided, ensure trailing newline for clean separation
             file.write_all(text.as_bytes())?;
             if !text.ends_with('\n') {
                 file.write_all(b"\n")?;
@@ -135,7 +141,6 @@ impl Config {
                 })
             }
             "append" => {
-                // Join all remaining arguments as the text content
                 let text = if args.len() >= 3 {
                     Some(args[2..].join(" "))
                 } else {
