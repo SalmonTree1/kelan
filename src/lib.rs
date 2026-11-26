@@ -3,6 +3,8 @@ use std::env;
 use std::error::Error;
 use std::fs::{self, OpenOptions};
 use std::io::{self, Write};
+use std::io::Read;
+
 
 fn notes_dir() -> Result<String, Box<dyn Error>> {
     let home = env::var("HOME")?;
@@ -64,7 +66,7 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
                 Some(t) => t,
                 None => {
                     let mut buffer = String::new();
-                    io::stdin().read_to_string(&mut buffer)?;
+                    io::stdin().read_to_end(&mut buffer)?;
                     buffer
                 }
             };
