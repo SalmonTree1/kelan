@@ -46,7 +46,7 @@ pub fn print_help() {
     println!();
     println!("COMMANDS:");
     println!("  read [file_name]   Print a note from ~/notes (defaults to today's note)");
-    println!("  append [text...]   Append to today's note (interactive mode if text omitted; type 'done' to finish)");
+    println!("  append [text...]   Append to today's note (interactive multi-line mode if text omitted; blank line for paragraph spacing, 'done' to finish)");
     println!("  help               Show this help message");
     println!();
     println!("ENVIRONMENT:");
