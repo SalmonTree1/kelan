@@ -7,6 +7,10 @@ use std::io::Read;
 
 
 fn notes_dir() -> Result<String, Box<dyn Error>> {
+    // Allow overriding notes directory via environment variable
+    if let Ok(dir) = env::var("NOTES_DIR") {
+        return Ok(dir);
+    }
     let home = env::var("HOME")?;
     Ok(format!("{home}/notes"))
 }
@@ -29,13 +33,17 @@ pub fn print_help() {
     println!();
     println!("COMMANDS:");
     println!("  read [file_name]   Print a note from ~/notes (defaults to today's note)");
-    println!("  append [text]      Append to today's note (reads from stdin if text omitted)");
+    println!("  append [text...]   Append to today's note (reads from stdin if text omitted, joins args with spaces)");
     println!("  help               Show this help message");
+    println!();
+    println!("ENVIRONMENT:");
+    println!("  NOTES_DIR          Override default notes directory (~/notes)");
     println!();
     println!("EXAMPLES:");
     println!("  cargo run -- read");
     println!("  cargo run -- read 2026-11-25.txt");
     println!("  cargo run -- append \"Had a breakthrough today\"");
+    println!("  cargo run -- append First line second line");
     println!("  cargo run -- append <<< \"First paragraph\n\nSecond paragraph\"");
     println!("  echo -e \"Line1\\nLine2\" | cargo run -- append");
     println!("  cargo run -- help");
@@ -62,16 +70,21 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
                 .append(true)
                 .open(path)?;
 
+            // Use provided text (joined args) or read from stdin
             let text = match config.text {
                 Some(t) => t,
                 None => {
                     let mut buffer = String::new();
-                    io::stdin().read_to_end(&mut buffer)?;
+                    io::stdin().read_to_string(&mut buffer)?;
                     buffer
                 }
             };
 
-            writeln!(file, "{}", text)?;
+            // Write content exactly as provided, ensure trailing newline for clean separation
+            file.write_all(text.as_bytes())?;
+            if !text.ends_with('\n') {
+                file.write_all(b"\n")?;
+            }
             println!("Appended text successfully.");
         }
         "help" => {
@@ -122,8 +135,9 @@ impl Config {
                 })
             }
             "append" => {
+                // Join all remaining arguments as the text content
                 let text = if args.len() >= 3 {
-                    Some(args[2].clone())
+                    Some(args[2..].join(" "))
                 } else {
                     None
                 };
