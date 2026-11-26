@@ -2,7 +2,7 @@ use chrono::Local;
 use std::env;
 use std::error::Error;
 use std::fs::{self, OpenOptions};
-use std::io::Write;
+use std::io::{self, Write};
 
 fn notes_dir() -> Result<String, Box<dyn Error>> {
     let home = env::var("HOME")?;
@@ -27,13 +27,15 @@ pub fn print_help() {
     println!();
     println!("COMMANDS:");
     println!("  read [file_name]   Print a note from ~/notes (defaults to today's note)");
-    println!("  append <text>      Append a line to today's note in ~/notes");
+    println!("  append [text]      Append to today's note (reads from stdin if text omitted)");
     println!("  help               Show this help message");
     println!();
     println!("EXAMPLES:");
     println!("  cargo run -- read");
     println!("  cargo run -- read 2026-11-25.txt");
     println!("  cargo run -- append \"Had a breakthrough today\"");
+    println!("  cargo run -- append <<< \"First paragraph\n\nSecond paragraph\"");
+    println!("  echo -e \"Line1\\nLine2\" | cargo run -- append");
     println!("  cargo run -- help");
 }
 
@@ -57,7 +59,17 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
                 .create(true)
                 .append(true)
                 .open(path)?;
-            writeln!(file, "{}", config.text)?;
+
+            let text = match config.text {
+                Some(t) => t,
+                None => {
+                    let mut buffer = String::new();
+                    io::stdin().read_to_string(&mut buffer)?;
+                    buffer
+                }
+            };
+
+            writeln!(file, "{}", text)?;
             println!("Appended text successfully.");
         }
         "help" => {
@@ -74,7 +86,7 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
 pub struct Config {
     pub command: String,
     pub file_path: String,
-    pub text: String,
+    pub text: Option<String>,
 }
 
 impl Config {
@@ -89,7 +101,7 @@ impl Config {
             return Ok(Config {
                 command: String::from("help"),
                 file_path: String::new(),
-                text: String::new(),
+                text: None,
             });
         }
 
@@ -104,15 +116,15 @@ impl Config {
                 Ok(Config {
                     command,
                     file_path,
-                    text: String::new(),
+                    text: None,
                 })
             }
             "append" => {
-                if args.len() < 3 {
-                    return Err("not enough arguments for append");
-                }
-
-                let text = args[2].clone();
+                let text = if args.len() >= 3 {
+                    Some(args[2].clone())
+                } else {
+                    None
+                };
 
                 Ok(Config {
                     command,
