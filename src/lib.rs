@@ -13,6 +13,14 @@ fn notes_dir() -> Result<String, Box<dyn Error>> {
     Ok(format!("{home}/notes"))
 }
 
+fn print_welcome() -> Result<(), Box<dyn Error>> {
+    println!("╷╭ ╭─╴╷  ╭─╮╭╮╷");
+    println!("├┴╮├╴ │  ├─┤│╰┤");
+    println!("╵ ╵╰─╴╰─╴╵ ╵╵ ╵");
+
+    Ok(())
+}
+
 fn today_file_path() -> Result<String, Box<dyn Error>> {
     let dir = notes_dir()?;
     let date = Local::now().format("%Y-%m-%d").to_string();
@@ -165,6 +173,9 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
             println!("calendar: ");
             print_month_calendar()?; 
         }
+        "welcome" => {
+            print_welcome()?;
+        }
         _ => {
             return Err("unknown command: run 'help' to see usage".into());
         }
@@ -182,7 +193,7 @@ pub struct Config {
 impl Config {
     pub fn build(args: &[String]) -> Result<Config, &'static str> {
         if args.len() < 2 {
-            return Err("not enough arguments (run 'help' to see usage)");
+           return Ok(Config { command: String::from("welcome"), file_path: String::new(), text: None });
         }
 
         let command = args[1].clone();
