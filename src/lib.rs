@@ -1,4 +1,5 @@
-use chrono::Local;
+use chrono::{Datelike, Duration, Local, NaiveDate};
+
 use std::env;
 use std::error::Error;
 use std::fs::{self, OpenOptions};
@@ -16,6 +17,45 @@ fn today_file_path() -> Result<String, Box<dyn Error>> {
     let dir = notes_dir()?;
     let date = Local::now().format("%Y-%m-%d").to_string();
     Ok(format!("{dir}/{date}.txt"))
+}
+
+fn print_month_calendar() -> Result<(), Box<dyn Error>> {
+    let now = Local::now();
+    let year = now.year();
+    let month = now.month();
+
+    let first_day = NaiveDate::from_ymd_opt(year, month, 1)
+        .ok_or("invalid calendar date")?;
+    let offset = first_day.weekday().num_days_from_sunday();
+
+    let (next_year, next_month) = if month == 12 {
+        (year + 1, 1)
+    } else {
+        (year, month + 1)
+    };
+    let next_month_first = NaiveDate::from_ymd_opt(next_year, next_month, 1)
+        .ok_or("invalid next month date")?;
+    let days_in_month = (next_month_first - Duration::days(1)).day();
+
+    println!("{year}-{month:02}");
+    println!("Su Mo Tu We Th Fr Sa");
+
+    for _ in 0..offset {
+        print!("   ");
+    }
+
+    for day in 1..=days_in_month {
+        print!("{day:>2} ");
+        if (offset + day) % 7 == 0 {
+            println!();
+        }
+    }
+
+    if (offset + days_in_month) % 7 != 0 {
+        println!();
+    }
+
+    Ok(())
 }
 
 fn read_multiline() -> Result<String, Box<dyn Error>> {
@@ -120,9 +160,10 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
                 Some(name) => name.as_str(),
                 None => "none",
             };
-
             println!("first entry: {first_entry}");
-            println!("number of entries: {number_of_entries}");
+            println!("number of entries: {number_of_entries}\n");
+            println!("calendar: ");
+            print_month_calendar()?; 
         }
         _ => {
             return Err("unknown command: run 'help' to see usage".into());
