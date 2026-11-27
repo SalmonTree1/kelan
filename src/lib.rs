@@ -48,6 +48,7 @@ pub fn print_help() {
     println!("  read [file_name]   Print a note from ~/notes (defaults to today's note)");
     println!("  append [text...]   Append to today's note (interactive multi-line mode if text omitted; blank line for paragraph spacing, 'done' to finish)");
     println!("  help               Show this help message");
+    println!("  stats              Shows first entry and number of total entries");
     println!();
     println!("ENVIRONMENT:");
     println!("  NOTES_DIR          Override default notes directory (~/notes)");
@@ -59,6 +60,7 @@ pub fn print_help() {
     println!("  cargo run -- append First line second line");
     println!("  cargo run -- append");
     println!("  cargo run -- help");
+    println!("  cargo run -- stats");
 }
 
 pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
@@ -95,6 +97,32 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
         }
         "help" => {
             print_help();
+        }
+        "stats" => {
+            let dir = notes_dir()?;
+            let mut entries = Vec::new();
+
+            if fs::metadata(&dir).is_ok() {
+                for entry in fs::read_dir(&dir)? {
+                    let entry = entry?;
+                    if !entry.path().is_file() {
+                        continue;
+                    }
+                    if let Some(name) = entry.file_name().to_str() {
+                        entries.push(name.to_string());
+                    }
+                }
+            }
+
+            entries.sort();
+            let number_of_entries = entries.len();
+            let first_entry = match entries.first() {
+                Some(name) => name.as_str(),
+                None => "none",
+            };
+
+            println!("first entry: {first_entry}");
+            println!("number of entries: {number_of_entries}");
         }
         _ => {
             return Err("unknown command: run 'help' to see usage".into());
@@ -151,6 +179,19 @@ impl Config {
                     command,
                     file_path: String::new(),
                     text,
+                })
+            }
+            "stats" => {
+                let file_path = if args.len() >= 3 {
+                    args[2].clone()
+                } else {
+                    String::new()
+                };
+
+                Ok(Config {
+                    command,
+                    file_path,
+                    text: None,
                 })
             }
             _ => Err("unknown command: run 'help' to see usage"),
